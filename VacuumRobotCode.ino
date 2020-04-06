@@ -1,28 +1,16 @@
 #include <SharpDistSensor.h>
 #include "Motors.h"
+#include "BatterySensor.h"
 
-const float voltageBatCharged = 12.68; // Voltage measured when battery fully charged //Change this
+const float voltageBatCharged = 12.71; // Voltage measured when battery fully charged //Change this
 const int motorPwm = 60;
-const byte nbSensors = 2;
-// Window size of the median filter (odd number, 1 = no filtering)
-const byte medianFilterWindowSize = 5;
 
 int bumperState = 0;
 int collisionCounter = 0;
 
-////////////PINS////////////////
-
-// Define the array of SharpDistSensor objects
-SharpDistSensor sensorArray[] = {
-    SharpDistSensor(0, medianFilterWindowSize), // First sensor using pin A1
-    SharpDistSensor(1, medianFilterWindowSize), // Second sensor using pin A2
-                                                // Add as many sensors as required
-};
-uint16_t distArray[nbSensors];
-
-//Distance Analog Sensors (Sharp)
-//SharpDistSensor leftSensor(0, medianFilterWindowSize);
-//SharpDistSensor rightSensor(1, medianFilterWindowSize);
+//PINS
+const int sensorLeft = 0;
+const int sensorRight = 1;
 
 const int battery = 4;
 const int signalLight = 13;
@@ -36,7 +24,8 @@ const int motor2Pin2 = 5;
 const int motor1Pin1 = 6;
 const int motor1Pin2 = 9;
 
-Motors motors(3, 5, 9, 6);
+Motors motors(motor2Pin1, motor2Pin2, motor1Pin2, motor1Pin1);
+BatterySensor batterySensor(battery, voltageBatCharged);
 
 void setup()
 {
@@ -46,21 +35,13 @@ void setup()
   pinMode(fanmotor, OUTPUT);
   pinMode(signalLight, OUTPUT);
   pinMode(bumper1, INPUT_PULLUP);
-  pinMode(battery, INPUT);
-
-  for (byte i = 0; i < nbSensors; i++)
-  {
-    sensorArray[i].setModel(SharpDistSensor::GP2Y0A51SK0F_5V_DS); // Set sensor model
-    // Set other parameters as required
-  }
-
-  //leftSensor.setModel(SharpDistSensor::GP2Y0A51SK0F_5V_DS);
-  //rightSensor.setModel(SharpDistSensor::GP2Y0A51SK0F_5V_DS);
+  pinMode(sensorLeft, INPUT);
+  pinMode(sensorRight, INPUT);
 
   //Wait about 2 s and initialize fan if voltage ok
   waitBlinking(2, 1);
   //Crank (initialize the fan because the voltage drops when cranking)
-  if (readBattery(battery) > 12.1)
+  if (batterySensor.getBatteryVoltage() > 12.1)
   {
     digitalWrite(fanmotor, HIGH);
     delay(1000);
@@ -82,27 +63,27 @@ void waitBlinking(int n, int frequency)
   }
 }
 
-float readBattery(int input)
-{
-  int readInput;
-  float voltage;
-  readInput = analogRead(input);
-  voltage = (((readInput * 4.9) / 1000) * voltageBatCharged) / 5; // resolution of analog input = 4.9mV per Voltage
-  // Serial.print(" Battery= ");
-  // Serial.print(voltage);
-  return voltage;
-}
+// float readBattery(int input)
+// {
+//   int readInput;
+//   float voltage;
+//   readInput = analogRead(input);
+//   voltage = (((readInput * 4.9) / 1000) * voltageBatCharged) / 5; // resolution of analog input = 4.9mV per Voltage
+//   Serial.print(" Battery= ");
+//   Serial.print(voltage);
+//   return voltage;
+// }
 
-bool batteryControl(int input)
-{
-  float v_battery;
-  v_battery = readBattery(input);
+// bool batteryControl(int input)
+// {
+//   float v_battery;
+//   v_battery = readBattery(input);
 
-  // when lipo voltage is below or equal to 11.6 return false and stop robot
-  return v_battery >= 11.6;
-}
+//   // when lipo voltage is below or equal to 11.6 return false and stop robot
+//   return v_battery >= 11.6;
+// }
 
-double sensor(int Sensor)
+double getSensorValue(int Sensor)
 {
   //Returns the distance in cm
   double dist = pow(analogRead(Sensor), -0.857); // x to power of y
@@ -114,24 +95,17 @@ void loop()
   // polling
   bumperState = digitalRead(bumper1);
 
-  for (byte i = 0; i < nbSensors; i++)
-  {
-    distArray[i] = sensorArray[i].getDist();
-  }
+  Serial.print(" sensor left ");
+  Serial.print(getSensorValue(sensorLeft));
+  Serial.print(" sensor right ");
+  Serial.print(getSensorValue(sensorRight));
 
-  // Serial.print(" sensor left ");
-  // Serial.print(leftSensor.getDist());
-  // Serial.print(" sensor right ");
-  // Serial.print(rightSensor.getDist());
-
-  if (batteryControl(battery))
+  if (batterySensor.safe())
   {
 
     digitalWrite(signalLight, HIGH);
-    if (distArray[0] <= 40)
+    if (getSensorValue(sensorLeft) <= 10)
     {
-      //Serial.print("trigger : ");
-      //Serial.print(leftSensor.getDist());
       //If the distance between an object and the left front sensor is less than 4.3 cm or the bumper hits, it will move to the left
       if (collisionCounter == 2)
       { // prevent of being stuck on corners
@@ -144,7 +118,7 @@ void loop()
       Serial.print("  Turn Left ");
       Serial.println();
     }
-    else if (distArray[1] <= 40)
+    else if (getSensorValue(sensorRight) <= 10)
     {
       //If the distance between an object and the right front sensor is less than 4.3 cm, it will move to the right
       if (collisionCounter == 1)
@@ -188,5 +162,5 @@ void loop()
     Serial.println();
     waitBlinking(1, 3); //blink as warning 3hz in a loop
   }
-  //Serial.println();
+  Serial.println();
 }
