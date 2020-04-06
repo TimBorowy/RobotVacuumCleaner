@@ -1,0 +1,7 @@
+{
+    "board": "arduino:avr:uno",
+    "programmer": "AVRISP mkII",
+    "sketch": "VacuumRobotCode.ino",
+    "port": "COM11",
+    "output": "./build"
+}
