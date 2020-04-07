@@ -1,5 +1,6 @@
+#include "Actuator.h"
 
-class Motors
+class Motors : public Actuator
 {
 public:
   int motor1Pin1;
@@ -15,4 +16,5 @@ public:
   void moveLeft(int moveTime);
   void reverse(int moveTime);
   void stop();
+  void interruptSafeDelay(int milis);
 };

@@ -1,20 +1,20 @@
 #include <SharpDistSensor.h>
 #include "Motors.h"
 #include "BatterySensor.h"
+#include "DistanceSensor.h"
 
 const float voltageBatCharged = 12.71; // Voltage measured when battery fully charged //Change this
 const int motorPwm = 60;
 
 int bumperState = 0;
-int collisionCounter = 0;
+volatile int collisionCounter = 0;
 
 //PINS
 const int sensorLeft = 0;
 const int sensorRight = 1;
-
 const int battery = 4;
 const int signalLight = 13;
-const int bumper1 = 10;
+const int bumper1 = 2;
 const int fanmotor = 12;
 
 // Motor2 Left
@@ -26,27 +26,8 @@ const int motor1Pin2 = 9;
 
 Motors motors(motor2Pin1, motor2Pin2, motor1Pin2, motor1Pin1);
 BatterySensor batterySensor(battery, voltageBatCharged);
-
-void setup()
-{
-  Serial.begin(9600);
-
-  //Initialize outputs and inputs
-  pinMode(fanmotor, OUTPUT);
-  pinMode(signalLight, OUTPUT);
-  pinMode(bumper1, INPUT_PULLUP);
-  pinMode(sensorLeft, INPUT);
-  pinMode(sensorRight, INPUT);
-
-  //Wait about 2 s and initialize fan if voltage ok
-  waitBlinking(2, 1);
-  //Crank (initialize the fan because the voltage drops when cranking)
-  if (batterySensor.getBatteryVoltage() > 12.1)
-  {
-    digitalWrite(fanmotor, HIGH);
-    delay(1000);
-  }
-}
+DistanceSensor distanceLeft(sensorLeft);
+DistanceSensor distanceRight(sensorRight);
 
 void waitBlinking(int n, int frequency)
 {
@@ -63,48 +44,51 @@ void waitBlinking(int n, int frequency)
   }
 }
 
-// float readBattery(int input)
-// {
-//   int readInput;
-//   float voltage;
-//   readInput = analogRead(input);
-//   voltage = (((readInput * 4.9) / 1000) * voltageBatCharged) / 5; // resolution of analog input = 4.9mV per Voltage
-//   Serial.print(" Battery= ");
-//   Serial.print(voltage);
-//   return voltage;
-// }
-
-// bool batteryControl(int input)
-// {
-//   float v_battery;
-//   v_battery = readBattery(input);
-
-//   // when lipo voltage is below or equal to 11.6 return false and stop robot
-//   return v_battery >= 11.6;
-// }
-
-double getSensorValue(int Sensor)
+void setup()
 {
-  //Returns the distance in cm
-  double dist = pow(analogRead(Sensor), -0.857); // x to power of y
-  return (dist * 1167.9);
+  Serial.begin(9600);
+
+  //Initialize outputs and inputs
+  pinMode(fanmotor, OUTPUT);
+  pinMode(signalLight, OUTPUT);
+  pinMode(bumper1, INPUT_PULLUP);
+
+  // LOW because pin gets pulled to ground
+  attachInterrupt(digitalPinToInterrupt(bumper1), bumperHit, LOW);
+
+  //Wait about 2 s and initialize fan if voltage ok
+  waitBlinking(2, 1);
+  //Crank (initialize the fan because the voltage drops when cranking)
+  if (batterySensor.getValue() > 12.1)
+  {
+    digitalWrite(fanmotor, HIGH);
+    delay(1000);
+  }
+}
+
+void bumperHit()
+{
+  collisionCounter = 0;
+  motors.reverse(500);
+  motors.moveLeft(300);
+  Serial.print("interrupt bumped");
 }
 
 void loop()
 {
   // polling
-  bumperState = digitalRead(bumper1);
+  //bumperState = digitalRead(bumper1);
 
   Serial.print(" sensor left ");
-  Serial.print(getSensorValue(sensorLeft));
+  Serial.print(distanceLeft.getValue());
   Serial.print(" sensor right ");
-  Serial.print(getSensorValue(sensorRight));
+  Serial.print(distanceRight.getValue());
 
   if (batterySensor.safe())
   {
 
     digitalWrite(signalLight, HIGH);
-    if (getSensorValue(sensorLeft) <= 10)
+    if (distanceLeft.getValue() <= 10)
     {
       //If the distance between an object and the left front sensor is less than 4.3 cm or the bumper hits, it will move to the left
       if (collisionCounter == 2)
@@ -118,7 +102,7 @@ void loop()
       Serial.print("  Turn Left ");
       Serial.println();
     }
-    else if (getSensorValue(sensorRight) <= 10)
+    else if (distanceRight.getValue() <= 10)
     {
       //If the distance between an object and the right front sensor is less than 4.3 cm, it will move to the right
       if (collisionCounter == 1)
@@ -131,13 +115,14 @@ void loop()
       collisionCounter++;
       Serial.print("  Turn Right");
     }
-    else if (bumperState == 0)
-    {
-      collisionCounter = 0;
-      motors.reverse(500);
-      motors.moveLeft(300);
-      Serial.print("  Turn Left ");
-    }
+    // polling code. leave in temp for review
+    // else if (bumperState == 0)
+    // {
+    //   collisionCounter = 0;
+    //   motors.reverse(500);
+    //   motors.moveLeft(300);
+    //   Serial.print(" Turn Left ");
+    // }
     else
     {
       if (collisionCounter == 3)
