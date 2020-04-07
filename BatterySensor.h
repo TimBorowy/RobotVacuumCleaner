@@ -3,11 +3,11 @@
 class BatterySensor : public Sensor
 {
 public:
-    int BatterySensor;
+    int sensorPin;
     float voltageBatCharged;
 
     BatterySensor(int pin, float chargedVoltage);
     void setup();
-    float getBatteryVoltage();
+    float getValue();
     bool safe();
 };

@@ -3,21 +3,21 @@
 
 BatterySensor::BatterySensor(int pin, float chargedVoltage)
 {
-    BatterySensor = pin;
+    sensorPin = pin;
     voltageBatCharged = chargedVoltage;
     setup();
 }
 
 void BatterySensor::setup()
 {
-    pinMode(BatterySensor, INPUT);
+    pinMode(sensorPin, INPUT);
 }
 
-float BatterySensor::getBatteryVoltage()
+float BatterySensor::getValue()
 {
     int readInput;
     float voltage;
-    readInput = analogRead(BatterySensor);
+    readInput = analogRead(sensorPin);
     voltage = (((readInput * 4.9) / 1000) * voltageBatCharged) / 5;
     return voltage;
 }
@@ -25,7 +25,7 @@ float BatterySensor::getBatteryVoltage()
 bool BatterySensor::safe()
 {
     float v_battery;
-    v_battery = getBatteryVoltage();
+    v_battery = getValue();
 
     // when lipo voltage is below or equal to 11.6 return false and stop robot
     return v_battery >= 11.6;
